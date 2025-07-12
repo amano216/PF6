@@ -119,31 +119,31 @@
         let lastShakeTime = 0;
         let lastAcceleration = { x: 0, y: 0, z: 0 };
         
-        // カラーパレット定義（より透明に）
+        // カラーパレット定義（適度な透明感）
         const palettes = {
             aurora: [
-                [100, 255, 200, 30],    // mint green
-                [100, 200, 255, 30],    // sky blue
-                [255, 100, 200, 30],    // pink
-                [200, 100, 255, 30]     // purple
+                [100, 255, 200, 50],    // mint green
+                [100, 200, 255, 50],    // sky blue
+                [255, 100, 200, 50],    // pink
+                [200, 100, 255, 50]     // purple
             ],
             fire: [
-                [255, 100, 50, 30],     // red
-                [255, 200, 50, 30],     // orange
-                [255, 255, 100, 30],    // yellow
-                [255, 150, 0, 30]       // dark orange
+                [255, 100, 50, 50],     // red
+                [255, 200, 50, 50],     // orange
+                [255, 255, 100, 50],    // yellow
+                [255, 150, 0, 50]       // dark orange
             ],
             ocean: [
-                [50, 100, 200, 30],     // deep blue
-                [50, 150, 250, 30],     // medium blue
-                [100, 200, 255, 30],    // light blue
-                [150, 255, 255, 30]     // cyan
+                [50, 100, 200, 50],     // deep blue
+                [50, 150, 250, 50],     // medium blue
+                [100, 200, 255, 50],    // light blue
+                [150, 255, 255, 50]     // cyan
             ],
             psychedelic: [
-                [255, 100, 255, 30],    // magenta
-                [100, 255, 255, 30],    // cyan
-                [255, 255, 100, 30],    // yellow
-                [255, 100, 200, 30]     // hot pink
+                [255, 100, 255, 50],    // magenta
+                [100, 255, 255, 50],    // cyan
+                [255, 255, 100, 50],    // yellow
+                [255, 100, 200, 50]     // hot pink
             ]
         };
         
@@ -292,7 +292,7 @@
                 
                 // アメーバ本体（複数層で透明感を表現）
                 for (let layer = 3; layer > 0; layer--) {
-                    fill(col[0], col[1], col[2], col[3] * 0.3 * layer / 3);
+                    fill(col[0], col[1], col[2], col[3] * 0.5 * layer / 3);
                     noStroke();
                     
                     beginShape();
@@ -315,7 +315,7 @@
                 
                 // 細胞膜のハイライト
                 noFill();
-                stroke(255, 255, 255, 20);
+                stroke(255, 255, 255, 30);
                 strokeWeight(2);
                 beginShape();
                 for (let i = 0; i <= this.numVertices; i++) {
@@ -336,22 +336,22 @@
                 
                 // 小器官
                 for (let org of this.organelles) {
-                    fill(255, 255, 255, 10);
+                    fill(255, 255, 255, 15);
                     noStroke();
                     ellipse(org.x, org.y, org.r * 2);
                     
                     // 小器官の中心
-                    fill(255, 255, 255, 20);
+                    fill(255, 255, 255, 30);
                     ellipse(org.x, org.y, org.r);
                 }
                 
                 // 核
-                fill(col[0] * 0.8, col[1] * 0.8, col[2] * 0.8, 40);
+                fill(col[0] * 0.8, col[1] * 0.8, col[2] * 0.8, 60);
                 noStroke();
                 ellipse(this.nucleus.x, this.nucleus.y, this.nucleus.r * 2);
                 
                 // 核小体
-                fill(255, 255, 255, 30);
+                fill(255, 255, 255, 40);
                 ellipse(this.nucleus.x, this.nucleus.y, this.nucleus.r * 0.5);
                 
                 pop();
