@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>流体アメーバ - インタラクティブアート</title>
+    
+    <!-- p5.js for creative coding -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <!-- Howler.js for sound -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            overflow: hidden;
+            background-color: #000000;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
+        main {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #defaultCanvas0 {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            opacity: 0.3;
+            transition: opacity 0.3s ease;
+        }
+        
+        .controls:hover {
+            opacity: 1;
+        }
+        
+        .palette-selector {
+            display: flex;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .palette-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .palette-btn:hover {
+            transform: scale(1.2);
+        }
+        
+        .palette-btn.active {
+            border-color: white;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        
+        .palette-aurora {
+            background: linear-gradient(45deg, #00ff88, #0088ff, #ff0088);
+        }
+        
+        .palette-fire {
+            background: linear-gradient(45deg, #ff0000, #ff8800, #ffff00);
+        }
+        
+        .palette-ocean {
+            background: linear-gradient(45deg, #001155, #0055aa, #00aaff);
+        }
+        
+        .palette-psychedelic {
+            background: linear-gradient(45deg, #ff00ff, #00ffff, #ffff00, #ff00ff);
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="controls">
+            <div class="palette-selector">
+                <div class="palette-btn palette-aurora active" data-palette="aurora"></div>
+                <div class="palette-btn palette-fire" data-palette="fire"></div>
+                <div class="palette-btn palette-ocean" data-palette="ocean"></div>
+                <div class="palette-btn palette-psychedelic" data-palette="psychedelic"></div>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        // グローバル変数
+        let amoebas = [];
+        let ripples = [];
+        let currentPalette = 'aurora';
+        let gravity = { x: 0, y: 0 };
+        let lastShakeTime = 0;
+        let lastAcceleration = { x: 0, y: 0, z: 0 };
+        
+        // カラーパレット定義（より透明に）
+        const palettes = {
+            aurora: [
+                [100, 255, 200, 30],    // mint green
+                [100, 200, 255, 30],    // sky blue
+                [255, 100, 200, 30],    // pink
+                [200, 100, 255, 30]     // purple
+            ],
+            fire: [
+                [255, 100, 50, 30],     // red
+                [255, 200, 50, 30],     // orange
+                [255, 255, 100, 30],    // yellow
+                [255, 150, 0, 30]       // dark orange
+            ],
+            ocean: [
+                [50, 100, 200, 30],     // deep blue
+                [50, 150, 250, 30],     // medium blue
+                [100, 200, 255, 30],    // light blue
+                [150, 255, 255, 30]     // cyan
+            ],
+            psychedelic: [
+                [255, 100, 255, 30],    // magenta
+                [100, 255, 255, 30],    // cyan
+                [255, 255, 100, 30],    // yellow
+                [255, 100, 200, 30]     // hot pink
+            ]
+        };
+        
+        // サウンドエフェクト
+        let sounds = {};
+        
+        function preload() {
+            // サウンドの初期化
+            sounds.tap = new Howl({
+                src: ['data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ4AAAADAP//EADy/wAA'],
+                volume: 0.1
+            });
+            
+            sounds.merge = new Howl({
+                src: ['data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ4AAAADAP//EADy/wAA'],
+                volume: 0.05
+            });
+        }
+        
+        // 波紋クラス
+        class Ripple {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 0;
+                this.maxRadius = 150;
+                this.life = 255;
+            }
+            
+            update() {
+                this.radius += 3;
+                this.life = map(this.radius, 0, this.maxRadius, 255, 0);
+            }
+            
+            display() {
+                push();
+                noFill();
+                stroke(255, 255, 255, this.life * 0.1);
+                strokeWeight(2);
+                ellipse(this.x, this.y, this.radius * 2);
+                pop();
+            }
+            
+            isDead() {
+                return this.radius > this.maxRadius;
+            }
+        }
+        
+        // アメーバクラス（より本物らしく）
+        class Amoeba {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.baseRadius = random(40, 80);
+                this.vertices = [];
+                this.numVertices = 20;
+                this.colorIndex = floor(random(palettes[currentPalette].length));
+                
+                // 細胞内小器官
+                this.organelles = [];
+                this.nucleus = {
+                    x: random(-10, 10),
+                    y: random(-10, 10),
+                    r: this.baseRadius * 0.3
+                };
+                
+                // 物理特性
+                this.vx = 0;
+                this.vy = 0;
+                this.targetX = x;
+                this.targetY = y;
+                
+                // 形状の初期化
+                for (let i = 0; i < this.numVertices; i++) {
+                    let angle = (TWO_PI / this.numVertices) * i;
+                    this.vertices.push({
+                        angle: angle,
+                        radius: this.baseRadius,
+                        offset: random(-10, 10),
+                        speed: random(0.01, 0.03)
+                    });
+                }
+                
+                // 小器官の生成
+                for (let i = 0; i < random(3, 8); i++) {
+                    this.organelles.push({
+                        x: random(-this.baseRadius * 0.5, this.baseRadius * 0.5),
+                        y: random(-this.baseRadius * 0.5, this.baseRadius * 0.5),
+                        r: random(5, 15),
+                        drift: random(TWO_PI)
+                    });
+                }
+            }
+            
+            update() {
+                // 重力の影響
+                this.vx += gravity.x * 0.05;
+                this.vy += gravity.y * 0.05;
+                
+                // ターゲットへの移動
+                let dx = this.targetX - this.x;
+                let dy = this.targetY - this.y;
+                this.vx += dx * 0.02;
+                this.vy += dy * 0.02;
+                
+                // 減衰
+                this.vx *= 0.95;
+                this.vy *= 0.95;
+                
+                // 位置更新
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                // 画面端での跳ね返り
+                if (this.x < this.baseRadius || this.x > width - this.baseRadius) {
+                    this.vx *= -0.5;
+                    this.x = constrain(this.x, this.baseRadius, width - this.baseRadius);
+                }
+                if (this.y < this.baseRadius || this.y > height - this.baseRadius) {
+                    this.vy *= -0.5;
+                    this.y = constrain(this.y, this.baseRadius, height - this.baseRadius);
+                }
+                
+                // 形状のアニメーション
+                for (let v of this.vertices) {
+                    v.offset = sin(frameCount * v.speed) * 15;
+                }
+                
+                // 核の動き
+                this.nucleus.x += sin(frameCount * 0.01) * 0.5;
+                this.nucleus.y += cos(frameCount * 0.01) * 0.5;
+                
+                // 小器官の動き
+                for (let org of this.organelles) {
+                    org.drift += 0.01;
+                    org.x += sin(org.drift) * 0.3;
+                    org.y += cos(org.drift) * 0.3;
+                }
+            }
+            
+            display() {
+                push();
+                translate(this.x, this.y);
+                
+                let col = palettes[currentPalette][this.colorIndex];
+                
+                // アメーバ本体（複数層で透明感を表現）
+                for (let layer = 3; layer > 0; layer--) {
+                    fill(col[0], col[1], col[2], col[3] * 0.3 * layer / 3);
+                    noStroke();
+                    
+                    beginShape();
+                    for (let i = 0; i <= this.numVertices; i++) {
+                        let v = this.vertices[i % this.numVertices];
+                        let r = (v.radius + v.offset) * (0.7 + layer * 0.1);
+                        let x = cos(v.angle) * r;
+                        let y = sin(v.angle) * r;
+                        
+                        if (i === 0) {
+                            curveVertex(x, y);
+                        }
+                        curveVertex(x, y);
+                        if (i === this.numVertices) {
+                            curveVertex(x, y);
+                        }
+                    }
+                    endShape(CLOSE);
+                }
+                
+                // 細胞膜のハイライト
+                noFill();
+                stroke(255, 255, 255, 20);
+                strokeWeight(2);
+                beginShape();
+                for (let i = 0; i <= this.numVertices; i++) {
+                    let v = this.vertices[i % this.numVertices];
+                    let r = v.radius + v.offset;
+                    let x = cos(v.angle) * r;
+                    let y = sin(v.angle) * r;
+                    
+                    if (i === 0) {
+                        curveVertex(x, y);
+                    }
+                    curveVertex(x, y);
+                    if (i === this.numVertices) {
+                        curveVertex(x, y);
+                    }
+                }
+                endShape(CLOSE);
+                
+                // 小器官
+                for (let org of this.organelles) {
+                    fill(255, 255, 255, 10);
+                    noStroke();
+                    ellipse(org.x, org.y, org.r * 2);
+                    
+                    // 小器官の中心
+                    fill(255, 255, 255, 20);
+                    ellipse(org.x, org.y, org.r);
+                }
+                
+                // 核
+                fill(col[0] * 0.8, col[1] * 0.8, col[2] * 0.8, 40);
+                noStroke();
+                ellipse(this.nucleus.x, this.nucleus.y, this.nucleus.r * 2);
+                
+                // 核小体
+                fill(255, 255, 255, 30);
+                ellipse(this.nucleus.x, this.nucleus.y, this.nucleus.r * 0.5);
+                
+                pop();
+            }
+            
+            // タッチへの反応
+            reactToTouch(tx, ty) {
+                let d = dist(this.x, this.y, tx, ty);
+                if (d < this.baseRadius * 2) {
+                    // 触られた方向と逆に少し動く
+                    let angle = atan2(this.y - ty, this.x - tx);
+                    this.vx += cos(angle) * 5;
+                    this.vy += sin(angle) * 5;
+                    
+                    // 形状を変形
+                    for (let v of this.vertices) {
+                        let vAngle = v.angle;
+                        let touchAngle = atan2(ty - this.y, tx - this.x);
+                        let diff = abs(vAngle - touchAngle);
+                        if (diff < PI / 4) {
+                            v.radius = this.baseRadius * 0.7;
+                        }
+                    }
+                    
+                    // 波紋を生成
+                    ripples.push(new Ripple(tx, ty));
+                    
+                    return true;
+                }
+                return false;
+            }
+            
+            // 形状を元に戻す
+            restoreShape() {
+                for (let v of this.vertices) {
+                    v.radius = lerp(v.radius, this.baseRadius, 0.1);
+                }
+            }
+            
+            // 分裂
+            divide() {
+                if (this.baseRadius > 40) {
+                    let newAmoeba = new Amoeba(
+                        this.x + random(-30, 30),
+                        this.y + random(-30, 30)
+                    );
+                    newAmoeba.baseRadius = this.baseRadius * 0.7;
+                    this.baseRadius *= 0.7;
+                    
+                    // 形状をリセット
+                    for (let v of this.vertices) {
+                        v.radius = this.baseRadius;
+                    }
+                    for (let v of newAmoeba.vertices) {
+                        v.radius = newAmoeba.baseRadius;
+                    }
+                    
+                    return newAmoeba;
+                }
+                return null;
+            }
+        }
+        
+        function setup() {
+            createCanvas(windowWidth, windowHeight);
+            
+            // 初期アメーバの生成
+            for (let i = 0; i < 3; i++) {
+                amoebas.push(new Amoeba(
+                    random(width * 0.2, width * 0.8),
+                    random(height * 0.2, height * 0.8)
+                ));
+            }
+            
+            // パレットボタンのイベントリスナー
+            document.querySelectorAll('.palette-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelector('.palette-btn.active').classList.remove('active');
+                    e.target.classList.add('active');
+                    currentPalette = e.target.dataset.palette;
+                });
+            });
+            
+            // デバイスの向きセンサー
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', handleOrientation);
+            }
+            
+            // デバイスモーションセンサー（シェイク検出）
+            if (window.DeviceMotionEvent) {
+                window.addEventListener('devicemotion', handleMotion);
+            }
+        }
+        
+        function draw() {
+            // 背景
+            background(0);
+            
+            // 波紋の更新と描画
+            for (let i = ripples.length - 1; i >= 0; i--) {
+                let r = ripples[i];
+                r.update();
+                r.display();
+                
+                if (r.isDead()) {
+                    ripples.splice(i, 1);
+                }
+            }
+            
+            // アメーバの更新と描画
+            for (let amoeba of amoebas) {
+                amoeba.restoreShape();
+                amoeba.update();
+                amoeba.display();
+            }
+        }
+        
+        // マウス/タッチイベント
+        function mousePressed() {
+            let touched = false;
+            
+            // 既存のアメーバへの反応をチェック
+            for (let amoeba of amoebas) {
+                if (amoeba.reactToTouch(mouseX, mouseY)) {
+                    touched = true;
+                    sounds.tap.play();
+                }
+            }
+            
+            // アメーバに触れていない場合は新しく生成
+            if (!touched && amoebas.length < 10) {
+                amoebas.push(new Amoeba(mouseX, mouseY));
+                ripples.push(new Ripple(mouseX, mouseY));
+                sounds.tap.play();
+            }
+        }
+        
+        function mouseDragged() {
+            // 最寄りのアメーバを引き寄せる
+            let minDist = Infinity;
+            let closest = null;
+            
+            for (let amoeba of amoebas) {
+                let d = dist(mouseX, mouseY, amoeba.x, amoeba.y);
+                if (d < minDist && d < 150) {
+                    minDist = d;
+                    closest = amoeba;
+                }
+            }
+            
+            if (closest) {
+                closest.targetX = mouseX;
+                closest.targetY = mouseY;
+            }
+        }
+        
+        function mouseReleased() {
+            // ターゲットをリセット
+            for (let amoeba of amoebas) {
+                amoeba.targetX = amoeba.x;
+                amoeba.targetY = amoeba.y;
+            }
+        }
+        
+        // ダブルクリックで分裂
+        function doubleClicked() {
+            for (let i = amoebas.length - 1; i >= 0; i--) {
+                let amoeba = amoebas[i];
+                let d = dist(mouseX, mouseY, amoeba.x, amoeba.y);
+                
+                if (d < amoeba.baseRadius) {
+                    let newAmoeba = amoeba.divide();
+                    if (newAmoeba) {
+                        amoebas.push(newAmoeba);
+                        sounds.merge.play();
+                    }
+                    break;
+                }
+            }
+        }
+        
+        // デバイスの向き
+        function handleOrientation(event) {
+            if (event.beta && event.gamma) {
+                gravity.x = event.gamma / 90;
+                gravity.y = event.beta / 90;
+            }
+        }
+        
+        // シェイク検出
+        function handleMotion(event) {
+            let acc = event.accelerationIncludingGravity;
+            if (!acc) return;
+            
+            let deltaX = Math.abs(acc.x - lastAcceleration.x);
+            let deltaY = Math.abs(acc.y - lastAcceleration.y);
+            let deltaZ = Math.abs(acc.z - lastAcceleration.z);
+            
+            let delta = deltaX + deltaY + deltaZ;
+            
+            if (delta > 30 && Date.now() - lastShakeTime > 1000) {
+                // シェイクで全アメーバを融合
+                amoebas = [];
+                amoebas.push(new Amoeba(width / 2, height / 2));
+                lastShakeTime = Date.now();
+                sounds.merge.play();
+            }
+            
+            lastAcceleration = { x: acc.x, y: acc.y, z: acc.z };
+        }
+        
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+        }
+    </script>
+</body>
+</html>
